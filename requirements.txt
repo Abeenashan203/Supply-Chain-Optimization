@@ -1,6 +1,11 @@
-# Install Streamlit and your repo requirements
-!pip install -q streamlit
-!pip install -r requirements.txt  # Run this if your repo has a requirements file
+# Create or overwrite the requirements file with all required packages
+%%writefile requirements.txt
+scikit-learn
+pandas
+numpy
+streamlit
+streamlit-folium
+folium
 
-# Install localtunnel globally
-!npm install -g localtunnel
+# Install everything together
+!pip install -r requirements.txt
