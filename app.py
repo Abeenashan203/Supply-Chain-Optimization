@@ -29,28 +29,24 @@ def load_plant_data():
 
 df = load_plant_data()
 
-# 2. Model Prediction with 17 Features matching your exact notebook shape
+# 2. Model Prediction logic
 def predict_metrics(plant_location, plant_cost, distance, employees, input_kg, ingredients_cost, sales_ml):
     try:
         with open("multi_output_model.pkl", "rb") as f:
             model = pickle.load(f)
-            
-            # Recreate One-Hot Encoded variables for Plant Location (Assuming Gampaha, Kandy, Matara order)
             is_gampaha = 1 if plant_location == 'Gampaha' else 0
             is_kandy = 1 if plant_location == 'Kandy' else 0
             is_matara = 1 if plant_location == 'Matara' else 0
             
-            # Build the full 17-feature array matching your notebook's X_train columns exactly
-            # (Filling remaining spots with 0 as placeholder values for farm locations)
+            # Formulating the exact 17 feature sequence shape
             features = [
                 plant_cost, distance, employees, input_kg, ingredients_cost, sales_ml,
                 is_gampaha, is_kandy, is_matara, 0, 0, 0, 0, 0, 0, 0, 0
             ]
-            
             preds = model.predict([features])
             return preds[0][0], preds[0][1], preds[0][2]
     except Exception as e:
-        # Fallback estimation if pickle fails to load
+        # Dynamic fallback approximation rules
         prod = 0.85 - (distance * 0.01)
         wastage = (input_kg * 0.03) + (distance * 1.2)
         returns = (sales_ml * 0.011)
@@ -66,7 +62,6 @@ col1, col2 = st.columns([2, 1.2])
 with col1:
     st.subheader("Map View - Processing Plants")
     m = folium.Map(location=[6.8, 80.3], zoom_start=8)
-    
     for idx, row in df.iterrows():
         folium.Marker(
             location=[row['plant_lat'], row['plant_lon']],
@@ -75,7 +70,6 @@ with col1:
         ).add_to(m)
 
     map_data = st_folium(m, width="100%", height=450, key="plant_map")
-    
     if map_data and map_data.get("last_object_clicked"):
         clicked_lat = map_data["last_object_clicked"]["lat"]
         clicked_lon = map_data["last_object_clicked"]["lng"]
@@ -88,7 +82,6 @@ target_row = df[df['id'] == st.session_state.selected_plant].iloc[0]
 with col2:
     st.subheader(f"📊 Live Analysis: {target_row['id']}")
     st.info(f"**Region:** {target_row['plant_location']}")
-    
     p_cost = st.number_input("Plant Setup Cost ($)", value=int(target_row['plant_cost']))
     dist = st.slider("Distance to Farm (km)", 0.0, 15.0, float(target_row['distance_to_farm_km']))
     emp = st.number_input("Employee Count", value=int(target_row['employees_count']))
@@ -96,7 +89,6 @@ with col2:
     ing_cost = st.number_input("Ingredients Cost ($)", value=int(target_row['ingredients_cost']))
     sales_vol = st.number_input("Expected Sales Target (ml)", value=int(target_row['sales_ml']))
 
-    # Predict using fixed 17-feature signature
     pred_productivity, pred_wastage, pred_returns = predict_metrics(
         target_row['plant_location'], p_cost, dist, emp, inp_kg, ing_cost, sales_vol
     )
@@ -108,12 +100,12 @@ with col2:
     m3.metric("Expected Returns", f"{pred_returns:.0f} ml")
 
 st.markdown("---")
-st.subheader(" 📈 Macro Plant Analysis & Comparative Insights")
-chart_col1, chart_col2 = st.columns(2)
-with chart_col1:
+st.subheader("📈 Macro Plant Analysis & Comparative Insights")
+c1, c2 = st.columns(2)
+with c1:
     st.write("**Resource Utilization Capacity (Inputs vs Production)**")
     st.bar_chart(data=df, x='id', y='input_kg', color='#2b5c8f')
-with chart_col2:
+with c2:
     st.write("**Operational Distances affecting Performance**")
     st.line_chart(data=df, x='id', y='distance_to_farm_km', color='#cc4a4a')
 
