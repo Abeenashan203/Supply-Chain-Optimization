@@ -1,5 +1,4 @@
 # Create or overwrite the requirements file with all required packages
-%%writefile requirements.txt
 scikit-learn
 pandas
 numpy
@@ -8,4 +7,3 @@ streamlit-folium
 folium
 
 # Install everything together
-!pip install -r requirements.txt
