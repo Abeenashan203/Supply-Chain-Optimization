@@ -1,0 +1,6 @@
+# Install Streamlit and your repo requirements
+!pip install -q streamlit
+!pip install -r requirements.txt  # Run this if your repo has a requirements file
+
+# Install localtunnel globally
+!npm install -g localtunnel
