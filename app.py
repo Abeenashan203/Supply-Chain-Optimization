@@ -112,34 +112,44 @@ if not st.session_state.logged_in:
             f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="120"></div>', 
             unsafe_allow_html=True
         )
-    st.markdown('<h1 style="text-align: center; color: #FFCC00;">🥤 FRUMIX COLA Portal</h1>', unsafe_allow_html=True)
+with col1:
+                st.subheader("Map View - Processing Plants")
+                # Starting view location framing all 10 scattered locations automatically
+                m = folium.Map(location=[6.95, 80.4], zoom_start=8)
+                
+                # Iterating through all 10 entries in the dataframe
+                for idx, row in df.iterrows():
+                    is_selected = row['id'] == st.session_state.selected_plant
+                    
+                    # --- CUSTOM LOGO MAP ICON LOGIC ---
+                    # If it's the selected plant, we make the logo slightly larger or give it a distinct border style
+                    icon_size = (35, 35) if is_selected else (28, 28)
+                    
+                    # Point folium directly to your local repository logo image file
+                    custom_icon = folium.CustomIcon(
+                        icon_image="logo.png",
+                        icon_size=icon_size
+                    )
+                    # ----------------------------------
+
+                    folium.Marker(
+                        location=[row['plant_lat'], row['plant_lon']],
+                        popup=f"Plant ID: {row['id']}<br>Region: {row['plant_location']}<br>Farm Source: {row['farm_location']}",
+                        tooltip=f"Plant {row['id']} {'(Selected)' if is_selected else ''}",
+                        icon=custom_icon
+                    ).add_to(m)
+
+                map_data = st_folium(m, width="100%", height=450, key="plant_map")
+                
+                # Check mapping pointer interactions to alter live state
+                if map_data and map_data.get("last_object_clicked"):
+                    clicked_lat = map_data["last_object_clicked"]["lat"]
+                    clicked_lon = map_data["last_object_clicked"]["lng"]
+                    # Tolerance search checking for closest marker match setup
+                    match = df[np.isclose(df['plant_lat'], clicked_lat, atol=0.01) & np.isclose(df['plant_lon'], clicked_lon, atol=0.01)]
+                    if not match.empty:
+                        st.session_state.selected_plant = match.iloc[0]['id']
     
-    with st.container():
-        st.subheader("Please Login to Access the Systems")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        
-        if st.button("Log In", use_container_width=True):
-            # Dynamic Graphic Loading Effect
-            with st.spinner("Authenticating secure profile..."):
-                time.sleep(1.2)  # Short artificial delay for graphic feel
-            if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
-                st.session_state.logged_in = True
-                st.session_state.user_role = username
-                st.rerun()
-            else:
-                st.error("Invalid Username or Password. Please try again.")
-else:
-    # --- LOGGED IN USER INTERFACE ---
-    
-    # Sidebar Configurations
-    with st.sidebar:
-        # Appends the Corporate Identity Logo inside the sidebar header
-        if logo_base64:
-            st.image(f"data:image/png;base64,{logo_base64}", use_container_width=True)
-            
-        st.subheader(f"👤 User: {st.session_state.user_role.capitalize()}")
-        st.info(f"**Privileges:** { 'Full Access' if st.session_state.user_role in ['admin', 'manager'] else 'Analysis Only' }")
         
         st.markdown("---")
         st.subheader("⚙️ Sidebar Options")
