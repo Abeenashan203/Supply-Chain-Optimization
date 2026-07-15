@@ -129,7 +129,7 @@ else:
         view_mode = st.radio("Dashboard Sub-Section", ["Overview Dashboard", "System Documentation"])
         
         st.markdown("---")
-        if st.button("Log Out", color="red", use_container_width=True):
+        if st.button("Log Out", type="primary", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.user_role = None
             st.rerun()
