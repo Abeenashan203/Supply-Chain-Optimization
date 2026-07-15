@@ -4,42 +4,42 @@ import numpy as np
 import pickle
 import folium
 from streamlit_folium import st_folium
-import base64  # <-- Required for encoding the background image
+import base64  
 import os
 
 st.set_page_config(layout="wide", page_title="Supply Chain Plant Optimization")
 
 # --- BACKGROUND IMAGE LOGIC ---
 def add_bg_from_local(image_file):
-    """Encodes a local image to base64 and injects it as a CSS background."""
+    """Encodes a local PNG image to base64 and overrides theme selectors."""
     if os.path.exists(image_file):
         with open(image_file, "rb") as f:
             encoded_string = base64.b64encode(f.read()).decode()
         st.markdown(
             f"""
             <style>
-            .stApp {{
-                background-image: url("data:image/png;base64,{encoded_string}");
-                background-attachment: fixed;
-                background-size: cover;
-                background-position: center;
+            .stApp, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContainer"], .stAppHeader {{
+                background-image: url("data:image/png;base64,{encoded_string}") !important;
+                background-attachment: fixed !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-color: transparent !important;
             }}
-            /* Optional: Adds a slight semi-transparent glass effect to columns 
-               so your text remains perfectly legible over the background */
+            
             [data-testid="stVerticalBlock"] {{
-                background-color: rgba(255, 255, 255, 0.75);
-                padding: 15px;
-                border-radius: 10px;
+                background-color: rgba(0, 0, 0, 0.65) !important;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
             }}
             </style>
             """,
             unsafe_allow_html=True
         )
 
-# Call the function with your exact file name
-# When deployed to streamlit.io via GitHub, it will look for this file in your repo root
+# Fixed extension to match your repo filename exactly
 add_bg_from_local("backround.png") 
-# ------------------------------
+# --------------------------------------
 
 # 1. Load Data
 @st.cache_data
@@ -83,61 +83,122 @@ def predict_metrics(plant_location, plant_cost, distance, employees, input_kg, i
         returns = (sales_ml * 0.011)
         return float(prod), float(wastage), float(returns)
 
-st.title("🏭 Supply Chain & Plant Performance Optimization Dashboard")
+# --- LOGIN & SESSION STATE INITIALIZATION ---
+USER_CREDENTIALS = {
+    "admin": "adm@123",
+    "manager": "mgr@123",
+    "anlyst": "alt@123"
+}
 
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'user_role' not in st.session_state:
+    st.session_state.user_role = None
 if 'selected_plant' not in st.session_state:
     st.session_state.selected_plant = "P001"
 
-col1, col2 = st.columns([2, 1.2])
-
-with col1:
-    st.subheader("Map View - Processing Plants")
-    m = folium.Map(location=[6.8, 80.3], zoom_start=8)
-    for idx, row in df.iterrows():
-        folium.Marker(
-            location=[row['plant_lat'], row['plant_lon']],
-            popup=f"Plant: {row['id']}",
-            icon=folium.Icon(color="blue" if row['id'] != st.session_state.selected_plant else "red", icon="industry", prefix="fa")
-        ).add_to(m)
-
-    map_data = st_folium(m, width="100%", height=450, key="plant_map")
-    if map_data and map_data.get("last_object_clicked"):
-        clicked_lat = map_data["last_object_clicked"]["lat"]
-        clicked_lon = map_data["last_object_clicked"]["lng"]
-        match = df[np.isclose(df['plant_lat'], clicked_lat, atol=0.01) & np.isclose(df['plant_lon'], clicked_lon, atol=0.01)]
-        if not match.empty:
-            st.session_state.selected_plant = match.iloc[0]['id']
-
-target_row = df[df['id'] == st.session_state.selected_plant].iloc[0]
-
-with col2:
-    st.subheader(f"📊 Live Analysis: {target_row['id']}")
-    st.info(f"**Region:** {target_row['plant_location']}")
-    p_cost = st.number_input("Plant Setup Cost ($)", value=int(target_row['plant_cost']))
-    dist = st.slider("Distance to Farm (km)", 0.0, 15.0, float(target_row['distance_to_farm_km']))
-    emp = st.number_input("Employee Count", value=int(target_row['employees_count']))
-    inp_kg = st.number_input("Raw Input Weight (kg)", value=int(target_row['input_kg']))
-    ing_cost = st.number_input("Ingredients Cost ($)", value=int(target_row['ingredients_cost']))
-    sales_vol = st.number_input("Expected Sales Target (ml)", value=int(target_row['sales_ml']))
-
-    pred_productivity, pred_wastage, pred_returns = predict_metrics(
-        target_row['plant_location'], p_cost, dist, emp, inp_kg, ing_cost, sales_vol
-    )
+# --- LOGIN SCREEN WORKFLOW ---
+if not st.session_state.logged_in:
+    st.title("🔐 Supply Chain Optimization Portal")
     
-    st.subheader("🧠 Machine Learning Predictions")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Productivity Index", f"{pred_productivity:.2%}")
-    m2.metric("Predicted Wastage", f"{pred_wastage:.2f} kg")
-    m3.metric("Expected Returns", f"{pred_returns:.0f} ml")
+    with st.container():
+        st.subheader("Please Login to Access the Dashboards")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        
+        if st.button("Log In", use_container_width=True):
+            if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+                st.session_state.logged_in = True
+                st.session_state.user_role = username
+                st.success(f"Welcome back, {username.capitalize()}!")
+                st.rerun()
+            else:
+                st.error("Invalid Username or Password. Please try again.")
+else:
+    # --- LOGGED IN USER INTERFACE ---
+    
+    # Sidebar Configurations
+    with st.sidebar:
+        st.subheader(f"👤 Current User: {st.session_state.user_role.capitalize()}")
+        st.info(f"**Role Privileges:** { 'Full Dashboard Access' if st.session_state.user_role in ['admin', 'manager'] else 'Analysis Only Access' }")
+        
+        st.markdown("---")
+        st.subheader("⚙️ Sidebar Options")
+        
+        # Shared Navigation or control utilities can be set up right here
+        view_mode = st.radio("Dashboard Sub-Section", ["Overview Dashboard", "System Documentation"])
+        
+        st.markdown("---")
+        if st.button("Log Out", color="red", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.user_role = None
+            st.rerun()
 
-st.markdown("---")
-st.subheader("📈 Macro Plant Analysis & Comparative Insights")
-c1, c2 = st.columns(2)
-with c1:
-    st.write("**Resource Utilization Capacity (Inputs vs Production)**")
-    st.bar_chart(data=df, x='id', y='input_kg', color='#2b5c8f')
-with c2:
-    st.write("**Operational Distances affecting Performance**")
-    st.line_chart(data=df, x='id', y='distance_to_farm_km', color='#cc4a4a')
+    if view_mode == "Overview Dashboard":
+        st.title("🏭 Supply Chain & Plant Performance Optimization Dashboard")
+        
+        # -----------------------------
+        # VIEW INTERFACE: ADMIN & MANAGER (SEE EVERYTHING)
+        # -----------------------------
+        if st.session_state.user_role in ["admin", "manager"]:
+            col1, col2 = st.columns([2, 1.2])
 
-st.dataframe(df, use_container_width=True)
+            with col1:
+                st.subheader("Map View - Processing Plants")
+                m = folium.Map(location=[6.8, 80.3], zoom_start=8)
+                for idx, row in df.iterrows():
+                    folium.Marker(
+                        location=[row['plant_lat'], row['plant_lon']],
+                        popup=f"Plant: {row['id']}",
+                        icon=folium.Icon(color="blue" if row['id'] != st.session_state.selected_plant else "red", icon="industry", prefix="fa")
+                    ).add_to(m)
+
+                map_data = st_folium(m, width="100%", height=450, key="plant_map")
+                if map_data and map_data.get("last_object_clicked"):
+                    clicked_lat = map_data["last_object_clicked"]["lat"]
+                    clicked_lon = map_data["last_object_clicked"]["lng"]
+                    match = df[np.isclose(df['plant_lat'], clicked_lat, atol=0.01) & np.isclose(df['plant_lon'], clicked_lon, atol=0.01)]
+                    if not match.empty:
+                        st.session_state.selected_plant = match.iloc[0]['id']
+
+            target_row = df[df['id'] == st.session_state.selected_plant].iloc[0]
+
+            with col2:
+                st.subheader(f"📊 Live Analysis: {target_row['id']}")
+                st.info(f"**Region:** {target_row['plant_location']}")
+                p_cost = st.number_input("Plant Setup Cost ($)", value=int(target_row['plant_cost']))
+                dist = st.slider("Distance to Farm (km)", 0.0, 15.0, float(target_row['distance_to_farm_km']))
+                emp = st.number_input("Employee Count", value=int(target_row['employees_count']))
+                inp_kg = st.number_input("Raw Input Weight (kg)", value=int(target_row['input_kg']))
+                ing_cost = st.number_input("Ingredients Cost ($)", value=int(target_row['ingredients_cost']))
+                sales_vol = st.number_input("Expected Sales Target (ml)", value=int(target_row['sales_ml']))
+
+                pred_productivity, pred_wastage, pred_returns = predict_metrics(
+                    target_row['plant_location'], p_cost, dist, emp, inp_kg, ing_cost, sales_vol
+                )
+                
+                st.subheader("🧠 Machine Learning Predictions")
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Productivity Index", f"{pred_productivity:.2%}")
+                m2.metric("Predicted Wastage", f"{pred_wastage:.2f} kg")
+                m3.metric("Expected Returns", f"{pred_returns:.0f} ml")
+
+            st.markdown("---")
+
+        # -----------------------------
+        # VIEW INTERFACE: SHARED MACRO ANALYSIS (ACCESSIBLE BY ALL INCLUDING ANLYST)
+        # -----------------------------
+        st.subheader("📈 Macro Plant Analysis & Comparative Insights")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.write("**Resource Utilization Capacity (Inputs vs Production)**")
+            st.bar_chart(data=df, x='id', y='input_kg', color='#2b5c8f')
+        with c2:
+            st.write("**Operational Distances affecting Performance**")
+            st.line_chart(data=df, x='id', y='distance_to_farm_km', color='#cc4a4a')
+
+        st.dataframe(df, use_container_width=True)
+
+    elif view_mode == "System Documentation":
+        st.title("📖 System Documentation")
+        st.write("Welcome to the internal processing portal. Use the sidebar options to swap sections.")
