@@ -132,22 +132,28 @@ else:
     
     # Render Control Hub elements directly inside Sidebar
     with st.sidebar:
-        if logo_base64:
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Display the custom ofc.png image directly at the top of the sidebar
+        if ofc_base64:
             st.markdown(
-                f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="90"></div>', 
+                f'<div style="text-align: center;"><img src="data:image/png;base64,{ofc_base64}" width="160" style="border-radius: 8px; border: 2px solid #FFCC00;"></div>',
                 unsafe_allow_html=True
             )
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Display the custom ofc.png image directly in place of the text session header
-        if ofc_base64:
+        # Display the dynamic Officer Name and role description elegantly underneath the picture
+        if st.session_state.user_role == "officer":
             st.markdown(
-                f'<div style="text-align: center;"><img src="data:image/png;base64,{ofc_base64}" width="180" style="border-radius: 8px;"></div>',
+                """
+                <div style="text-align: center; margin-top: 12px;">
+                    <h4 style="color: #FFCC00; margin-bottom: 2px;">S. Abeenashan</h4>
+                    <p style="color: #AAAAAA; font-size: 0.9rem; margin-top: 0;">Supply Chain Optimization Officer</p>
+                </div>
+                """, 
                 unsafe_allow_html=True
             )
         else:
-            st.markdown(f"<h4 style='text-align: center; color: #FFCC00;'>Session: {st.session_state.user_role.upper()}</h4>", unsafe_allow_html=True)
+            st.markdown(f"<h4 style='text-align: center; color: #FFCC00; margin-top:12px;'>Session: {st.session_state.user_role.upper()}</h4>", unsafe_allow_html=True)
             
         st.markdown("---")
         st.subheader("⚙️ Sidebar Options")
