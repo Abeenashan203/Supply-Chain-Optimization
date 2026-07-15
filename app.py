@@ -4,8 +4,42 @@ import numpy as np
 import pickle
 import folium
 from streamlit_folium import st_folium
+import base64  # <-- Required for encoding the background image
+import os
 
 st.set_page_config(layout="wide", page_title="Supply Chain Plant Optimization")
+
+# --- BACKGROUND IMAGE LOGIC ---
+def add_bg_from_local(image_file):
+    """Encodes a local image to base64 and injects it as a CSS background."""
+    if os.path.exists(image_file):
+        with open(image_file, "rb") as f:
+            encoded_string = base64.b64encode(f.read()).decode()
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/png;base64,{encoded_string}");
+                background-attachment: fixed;
+                background-size: cover;
+                background-position: center;
+            }}
+            /* Optional: Adds a slight semi-transparent glass effect to columns 
+               so your text remains perfectly legible over the background */
+            [data-testid="stVerticalBlock"] {{
+                background-color: rgba(255, 255, 255, 0.75);
+                padding: 15px;
+                border-radius: 10px;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+# Call the function with your exact file name
+# When deployed to streamlit.io via GitHub, it will look for this file in your repo root
+add_bg_from_local("background.jpg") 
+# ------------------------------
 
 # 1. Load Data
 @st.cache_data
@@ -37,7 +71,6 @@ def predict_metrics(plant_location, plant_cost, distance, employees, input_kg, i
             is_kandy = 1 if plant_location == 'Kandy' else 0
             is_matara = 1 if plant_location == 'Matara' else 0
             
-            # Formulating the exact 17 feature sequence shape
             features = [
                 plant_cost, distance, employees, input_kg, ingredients_cost, sales_ml,
                 is_gampaha, is_kandy, is_matara, 0, 0, 0, 0, 0, 0, 0, 0
@@ -45,7 +78,6 @@ def predict_metrics(plant_location, plant_cost, distance, employees, input_kg, i
             preds = model.predict([features])
             return preds[0][0], preds[0][1], preds[0][2]
     except Exception as e:
-        # Dynamic fallback approximation rules
         prod = 0.85 - (distance * 0.01)
         wastage = (input_kg * 0.03) + (distance * 1.2)
         returns = (sales_ml * 0.011)
