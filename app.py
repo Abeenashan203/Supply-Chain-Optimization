@@ -21,6 +21,7 @@ def get_base64_image(image_file):
 # Encode images at startup
 bg_base64 = get_base64_image("backround.png")
 logo_base64 = get_base64_image("logo.png")
+ofc_base64 = get_base64_image("ofc.png")
 
 # Inject Global CSS Overrides
 if bg_base64:
@@ -91,7 +92,7 @@ def predict_metrics(plant_location, plant_cost, distance, employees, input_kg, i
 # --- LOGIN & SESSION STATE INITIALIZATION ---
 USER_CREDENTIALS = {
     "admin": "adm@123",
-    "manager": "mgr@123",
+    "officer": "ofc@123",
     "anlyst": "alt@123"
 }
 
@@ -136,7 +137,18 @@ else:
                 f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="90"></div>', 
                 unsafe_allow_html=True
             )
-        st.markdown(f"<h4 style='text-align: center; color: #FFCC00;'>Session: {st.session_state.user_role.upper()}</h4>", unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Display the custom ofc.png image directly in place of the text session header
+        if ofc_base64:
+            st.markdown(
+                f'<div style="text-align: center;"><img src="data:image/png;base64,{ofc_base64}" width="180" style="border-radius: 8px;"></div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(f"<h4 style='text-align: center; color: #FFCC00;'>Session: {st.session_state.user_role.upper()}</h4>", unsafe_allow_html=True)
+            
         st.markdown("---")
         st.subheader("⚙️ Sidebar Options")
         view_mode = st.radio("Dashboard Sub-Section", ["Overview Dashboard", "System Documentation"])
@@ -153,14 +165,14 @@ else:
         h_col1, h_col2 = st.columns([0.15, 0.85])
         with h_col1:
             if logo_base64:
-                st.image(f"data:image/png;base64,{logo_base64}", width=80)
+                st.image(f"data:image/png;base64,{logo_base64}", width=90)
         with h_col2:
-            st.markdown('<h1 style="margin: 0; padding-top: 10px; color: #FFCC00;">FRUMIX COLA - Supply Chain Optimization</h1>', unsafe_allow_html=True)
+            st.markdown('<h1 style="margin: 0; padding-top: 15px; color: #FFCC00;">FRUMIX COLA - Supply Chain Optimization</h1>', unsafe_allow_html=True)
         
         # -----------------------------
-        # VIEW INTERFACE: ADMIN & MANAGER (SEE MAP & ML CONTROLS)
+        # VIEW INTERFACE: ADMIN & OFFICER (SEE MAP & ML CONTROLS)
         # -----------------------------
-        if st.session_state.user_role in ["admin", "manager"]:
+        if st.session_state.user_role in ["admin", "officer"]:
             col1, col2 = st.columns([2, 1.2])
 
             with col1:
@@ -172,11 +184,14 @@ else:
                     is_selected = row['id'] == st.session_state.selected_plant
                     icon_size = (35, 35) if is_selected else (28, 28)
                     
-                    # Point folium directly to your custom company logo image file
-                    custom_icon = folium.CustomIcon(
-                        icon_image="logo.png",
-                        icon_size=icon_size
-                    )
+                    # Safe Base64 mapping marker configuration
+                    if logo_base64:
+                        custom_icon = folium.CustomIcon(
+                            icon_image=f"data:image/png;base64,{logo_base64}",
+                            icon_size=icon_size
+                        )
+                    else:
+                        custom_icon = folium.Icon(color="red" if is_selected else "blue", icon="industry", prefix="fa")
 
                     folium.Marker(
                         location=[row['plant_lat'], row['plant_lon']],
