@@ -52,8 +52,6 @@ def load_plant_data():
     data = {
         'id': ['P001', 'P002', 'P003', 'P004', 'P005', 'P006', 'P007', 'P008', 'P009', 'P010'],
         'plant_location': ['Gampaha', 'Kandy', 'Gampaha', 'Matara', 'Kandy', 'Matara', 'Gampaha', 'Kandy', 'Matara', 'Gampaha'],
-        # Notice: The original coordinates overlap significantly because they match regional metrics.
-        # We slightly adjust overlapping latitudes/longitudes so ALL 10 distinct marker pins scatter beautifully on the map canvas.
         'plant_lat': [7.0873, 7.2906, 7.0950, 5.9549, 7.3020, 5.9680, 7.0720, 7.2810, 5.9420, 7.1030],
         'plant_lon': [80.0144, 80.6337, 80.0290, 80.5550, 80.6490, 80.5690, 80.0010, 80.6190, 80.5390, 80.0410],
         'farm_location': ['Dompe', 'Gampola', 'Mirigama', 'Akuressa', 'Peradeniya', 'Kamburupitiya', 'Avissawella', 'Katugastota', 'Weligama', 'Veyangoda'],
@@ -106,31 +104,79 @@ if 'selected_plant' not in st.session_state:
 
 # --- LOGIN SCREEN WORKFLOW ---
 if not st.session_state.logged_in:
-    # Top Logo Graphic Header for Login
     if logo_base64:
         st.markdown(
             f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="120"></div>', 
             unsafe_allow_html=True
         )
-with col1:
+    
+    st.markdown("<h2 style='text-align: center; color: white;'>System Access Gateway</h2>", unsafe_allow_html=True)
+    
+    with st.form("login_form"):
+        username = st.text_input("Username (Role ID)")
+        password = st.text_input("Security Token", type="password")
+        submit_btn = st.form_submit_button("Authenticate Access", use_container_width=True)
+        
+        if submit_btn:
+            if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+                st.session_state.logged_in = True
+                st.session_state.user_role = username
+                st.success("Authentication successful! Loading channels...")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("Invalid Username or Token configuration.")
+else:
+    # --- AUTHENTICATED APPLICATION INTERFACE ---
+    
+    # Render Control Hub elements directly inside Sidebar
+    with st.sidebar:
+        if logo_base64:
+            st.markdown(
+                f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="90"></div>', 
+                unsafe_allow_html=True
+            )
+        st.markdown(f"<h4 style='text-align: center; color: #FFCC00;'>Session: {st.session_state.user_role.upper()}</h4>", unsafe_allow_html=True)
+        st.markdown("---")
+        st.subheader("⚙️ Sidebar Options")
+        view_mode = st.radio("Dashboard Sub-Section", ["Overview Dashboard", "System Documentation"])
+        
+        st.markdown("---")
+        if st.button("Log Out", type="primary", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.user_role = None
+            st.rerun()
+
+    # View Mode Handling Logic
+    if view_mode == "Overview Dashboard":
+        # Top Header Brand Section with Logo inline
+        h_col1, h_col2 = st.columns([0.15, 0.85])
+        with h_col1:
+            if logo_base64:
+                st.image(f"data:image/png;base64,{logo_base64}", width=80)
+        with h_col2:
+            st.markdown('<h1 style="margin: 0; padding-top: 10px; color: #FFCC00;">FRUMIX COLA - Supply Chain Optimization</h1>', unsafe_allow_html=True)
+        
+        # -----------------------------
+        # VIEW INTERFACE: ADMIN & MANAGER (SEE MAP & ML CONTROLS)
+        # -----------------------------
+        if st.session_state.user_role in ["admin", "manager"]:
+            col1, col2 = st.columns([2, 1.2])
+
+            with col1:
                 st.subheader("Map View - Processing Plants")
-                # Starting view location framing all 10 scattered locations automatically
                 m = folium.Map(location=[6.95, 80.4], zoom_start=8)
                 
                 # Iterating through all 10 entries in the dataframe
                 for idx, row in df.iterrows():
                     is_selected = row['id'] == st.session_state.selected_plant
-                    
-                    # --- CUSTOM LOGO MAP ICON LOGIC ---
-                    # If it's the selected plant, we make the logo slightly larger or give it a distinct border style
                     icon_size = (35, 35) if is_selected else (28, 28)
                     
-                    # Point folium directly to your local repository logo image file
+                    # Point folium directly to your custom company logo image file
                     custom_icon = folium.CustomIcon(
                         icon_image="logo.png",
                         icon_size=icon_size
                     )
-                    # ----------------------------------
 
                     folium.Marker(
                         location=[row['plant_lat'], row['plant_lon']],
@@ -145,59 +191,6 @@ with col1:
                 if map_data and map_data.get("last_object_clicked"):
                     clicked_lat = map_data["last_object_clicked"]["lat"]
                     clicked_lon = map_data["last_object_clicked"]["lng"]
-                    # Tolerance search checking for closest marker match setup
-                    match = df[np.isclose(df['plant_lat'], clicked_lat, atol=0.01) & np.isclose(df['plant_lon'], clicked_lon, atol=0.01)]
-                    if not match.empty:
-                        st.session_state.selected_plant = match.iloc[0]['id']
-    
-        
-        st.markdown("---")
-        st.subheader("⚙️ Sidebar Options")
-        view_mode = st.radio("Dashboard Sub-Section", ["Overview Dashboard", "System Documentation"])
-        
-        st.markdown("---")
-        if st.button("Log Out", type="primary", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.user_role = None
-            st.rerun()
-
-    if view_mode == "Overview Dashboard":
-        # Top Header Brand Section with Logo inline
-        h_col1, h_col2 = st.columns([0.15, 0.85])
-        with h_col1:
-            if logo_base64:
-                st.image(f"data:image/png;base64,{logo_base64}", width=80)
-        with h_col2:
-            st.markdown('<h1 style="margin: 0; padding-top: 10px; color: #FFCC00;">FRUMIX COLA - Supply Chain Optimization</h1>', unsafe_allow_html=True)
-        
-        # -----------------------------
-        # VIEW INTERFACE: ADMIN & MANAGER (SEE EVERYTHING)
-        # -----------------------------
-        if st.session_state.user_role in ["admin", "manager"]:
-            col1, col2 = st.columns([2, 1.2])
-
-            with col1:
-                st.subheader("Map View - Processing Plants")
-                # Adjusted starting view location and zoom out slightly to frame all 10 scattered locations automatically
-                m = folium.Map(location=[6.95, 80.4], zoom_start=8)
-                
-                # Iterating through all 10 entries in the dataframe
-                for idx, row in df.iterrows():
-                    is_selected = row['id'] == st.session_state.selected_plant
-                    folium.Marker(
-                        location=[row['plant_lat'], row['plant_lon']],
-                        popup=f"Plant ID: {row['id']}<br>Region: {row['plant_location']}<br>Farm Source: {row['farm_location']}",
-                        tooltip=f"Plant {row['id']}",
-                        icon=folium.Icon(color="red" if is_selected else "blue", icon="industry", prefix="fa")
-                    ).add_to(m)
-
-                map_data = st_folium(m, width="100%", height=450, key="plant_map")
-                
-                # Check mapping pointer interactions to alter live state
-                if map_data and map_data.get("last_object_clicked"):
-                    clicked_lat = map_data["last_object_clicked"]["lat"]
-                    clicked_lon = map_data["last_object_clicked"]["lng"]
-                    # Tolerance search checking for closest marker match setup
                     match = df[np.isclose(df['plant_lat'], clicked_lat, atol=0.01) & np.isclose(df['plant_lon'], clicked_lon, atol=0.01)]
                     if not match.empty:
                         st.session_state.selected_plant = match.iloc[0]['id']
