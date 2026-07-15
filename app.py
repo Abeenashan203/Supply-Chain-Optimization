@@ -6,40 +6,45 @@ import folium
 from streamlit_folium import st_folium
 import base64  
 import os
+import time
 
-st.set_page_config(layout="wide", page_title="Supply Chain Plant Optimization")
+st.set_page_config(layout="wide", page_title="FRUMIX COLA - Supply Chain Optimization")
 
-# --- BACKGROUND IMAGE LOGIC ---
-def add_bg_from_local(image_file):
-    """Encodes a local PNG image to base64 and overrides theme selectors."""
+# --- BACKGROUND & LOGO IMAGE ENCODING LOGIC ---
+def get_base64_image(image_file):
+    """Encodes a local file to base64 safely."""
     if os.path.exists(image_file):
         with open(image_file, "rb") as f:
-            encoded_string = base64.b64encode(f.read()).decode()
-        st.markdown(
-            f"""
-            <style>
-            .stApp, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContainer"], .stAppHeader {{
-                background-image: url("data:image/png;base64,{encoded_string}") !important;
-                background-attachment: fixed !important;
-                background-size: cover !important;
-                background-position: center !important;
-                background-color: transparent !important;
-            }}
-            
-            [data-testid="stVerticalBlock"] {{
-                background-color: rgba(0, 0, 0, 0.65) !important;
-                padding: 20px;
-                border-radius: 12px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            }}
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
+            return base64.b64encode(f.read()).decode()
+    return ""
 
-# Fixed extension to match your repo filename exactly
-add_bg_from_local("backround.png") 
-# --------------------------------------
+# Encode images at startup
+bg_base64 = get_base64_image("backround.png")
+logo_base64 = get_base64_image("logo.png")
+
+# Inject Global CSS Overrides
+if bg_base64:
+    st.markdown(
+        f"""
+        <style>
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContainer"], .stAppHeader {{
+            background-image: url("data:image/png;base64,{bg_base64}") !important;
+            background-attachment: fixed !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-color: transparent !important;
+        }}
+        
+        [data-testid="stVerticalBlock"] {{
+            background-color: rgba(0, 0, 0, 0.65) !important;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 # 1. Load Data
 @st.cache_data
@@ -47,8 +52,10 @@ def load_plant_data():
     data = {
         'id': ['P001', 'P002', 'P003', 'P004', 'P005', 'P006', 'P007', 'P008', 'P009', 'P010'],
         'plant_location': ['Gampaha', 'Kandy', 'Gampaha', 'Matara', 'Kandy', 'Matara', 'Gampaha', 'Kandy', 'Matara', 'Gampaha'],
-        'plant_lat': [7.0873, 7.2906, 7.0873, 5.9549, 7.2906, 5.9549, 7.0873, 7.2906, 5.9549, 7.0873],
-        'plant_lon': [80.0144, 80.6337, 80.0144, 80.5550, 80.6337, 80.5550, 80.0144, 80.6337, 80.5550, 80.0144],
+        # Notice: The original coordinates overlap significantly because they match regional metrics.
+        # We slightly adjust overlapping latitudes/longitudes so ALL 10 distinct marker pins scatter beautifully on the map canvas.
+        'plant_lat': [7.0873, 7.2906, 7.0950, 5.9549, 7.3020, 5.9680, 7.0720, 7.2810, 5.9420, 7.1030],
+        'plant_lon': [80.0144, 80.6337, 80.0290, 80.5550, 80.6490, 80.5690, 80.0010, 80.6190, 80.5390, 80.0410],
         'farm_location': ['Dompe', 'Gampola', 'Mirigama', 'Akuressa', 'Peradeniya', 'Kamburupitiya', 'Avissawella', 'Katugastota', 'Weligama', 'Veyangoda'],
         'plant_cost': [152500, 98000, 210000, 135000, 185000, 115000, 240000, 160000, 105000, 198000],
         'distance_to_farm_km': [2.4, 5.1, 1.8, 8.7, 3.9, 4.2, 0.5, 6.3, 10.2, 2.9],
@@ -99,18 +106,26 @@ if 'selected_plant' not in st.session_state:
 
 # --- LOGIN SCREEN WORKFLOW ---
 if not st.session_state.logged_in:
-    st.title("🔐 Supply Chain Optimization Portal")
+    # Top Logo Graphic Header for Login
+    if logo_base64:
+        st.markdown(
+            f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="120"></div>', 
+            unsafe_allow_html=True
+        )
+    st.markdown('<h1 style="text-align: center; color: #FFCC00;">🥤 FRUMIX COLA Portal</h1>', unsafe_allow_html=True)
     
     with st.container():
-        st.subheader("Please Login to Access the Dashboards")
+        st.subheader("Please Login to Access the Systems")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         
         if st.button("Log In", use_container_width=True):
+            # Dynamic Graphic Loading Effect
+            with st.spinner("Authenticating secure profile..."):
+                time.sleep(1.2)  # Short artificial delay for graphic feel
             if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
                 st.session_state.logged_in = True
                 st.session_state.user_role = username
-                st.success(f"Welcome back, {username.capitalize()}!")
                 st.rerun()
             else:
                 st.error("Invalid Username or Password. Please try again.")
@@ -119,13 +134,15 @@ else:
     
     # Sidebar Configurations
     with st.sidebar:
-        st.subheader(f"👤 Current User: {st.session_state.user_role.capitalize()}")
-        st.info(f"**Role Privileges:** { 'Full Dashboard Access' if st.session_state.user_role in ['admin', 'manager'] else 'Analysis Only Access' }")
+        # Appends the Corporate Identity Logo inside the sidebar header
+        if logo_base64:
+            st.image(f"data:image/png;base64,{logo_base64}", use_container_width=True)
+            
+        st.subheader(f"👤 User: {st.session_state.user_role.capitalize()}")
+        st.info(f"**Privileges:** { 'Full Access' if st.session_state.user_role in ['admin', 'manager'] else 'Analysis Only' }")
         
         st.markdown("---")
         st.subheader("⚙️ Sidebar Options")
-        
-        # Shared Navigation or control utilities can be set up right here
         view_mode = st.radio("Dashboard Sub-Section", ["Overview Dashboard", "System Documentation"])
         
         st.markdown("---")
@@ -135,7 +152,13 @@ else:
             st.rerun()
 
     if view_mode == "Overview Dashboard":
-        st.title("🏭 Supply Chain & Plant Performance Optimization Dashboard")
+        # Top Header Brand Section with Logo inline
+        h_col1, h_col2 = st.columns([0.15, 0.85])
+        with h_col1:
+            if logo_base64:
+                st.image(f"data:image/png;base64,{logo_base64}", width=80)
+        with h_col2:
+            st.markdown('<h1 style="margin: 0; padding-top: 10px; color: #FFCC00;">FRUMIX COLA - Supply Chain Optimization</h1>', unsafe_allow_html=True)
         
         # -----------------------------
         # VIEW INTERFACE: ADMIN & MANAGER (SEE EVERYTHING)
@@ -145,18 +168,26 @@ else:
 
             with col1:
                 st.subheader("Map View - Processing Plants")
-                m = folium.Map(location=[6.8, 80.3], zoom_start=8)
+                # Adjusted starting view location and zoom out slightly to frame all 10 scattered locations automatically
+                m = folium.Map(location=[6.95, 80.4], zoom_start=8)
+                
+                # Iterating through all 10 entries in the dataframe
                 for idx, row in df.iterrows():
+                    is_selected = row['id'] == st.session_state.selected_plant
                     folium.Marker(
                         location=[row['plant_lat'], row['plant_lon']],
-                        popup=f"Plant: {row['id']}",
-                        icon=folium.Icon(color="blue" if row['id'] != st.session_state.selected_plant else "red", icon="industry", prefix="fa")
+                        popup=f"Plant ID: {row['id']}<br>Region: {row['plant_location']}<br>Farm Source: {row['farm_location']}",
+                        tooltip=f"Plant {row['id']}",
+                        icon=folium.Icon(color="red" if is_selected else "blue", icon="industry", prefix="fa")
                     ).add_to(m)
 
                 map_data = st_folium(m, width="100%", height=450, key="plant_map")
+                
+                # Check mapping pointer interactions to alter live state
                 if map_data and map_data.get("last_object_clicked"):
                     clicked_lat = map_data["last_object_clicked"]["lat"]
                     clicked_lon = map_data["last_object_clicked"]["lng"]
+                    # Tolerance search checking for closest marker match setup
                     match = df[np.isclose(df['plant_lat'], clicked_lat, atol=0.01) & np.isclose(df['plant_lon'], clicked_lon, atol=0.01)]
                     if not match.empty:
                         st.session_state.selected_plant = match.iloc[0]['id']
@@ -165,7 +196,7 @@ else:
 
             with col2:
                 st.subheader(f"📊 Live Analysis: {target_row['id']}")
-                st.info(f"**Region:** {target_row['plant_location']}")
+                st.info(f"**Region:** {target_row['plant_location']} | **Farm:** {target_row['farm_location']}")
                 p_cost = st.number_input("Plant Setup Cost ($)", value=int(target_row['plant_cost']))
                 dist = st.slider("Distance to Farm (km)", 0.0, 15.0, float(target_row['distance_to_farm_km']))
                 emp = st.number_input("Employee Count", value=int(target_row['employees_count']))
@@ -186,7 +217,7 @@ else:
             st.markdown("---")
 
         # -----------------------------
-        # VIEW INTERFACE: SHARED MACRO ANALYSIS (ACCESSIBLE BY ALL INCLUDING ANLYST)
+        # VIEW INTERFACE: SHARED MACRO ANALYSIS
         # -----------------------------
         st.subheader("📈 Macro Plant Analysis & Comparative Insights")
         c1, c2 = st.columns(2)
