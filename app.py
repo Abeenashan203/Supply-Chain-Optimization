@@ -38,7 +38,7 @@ def add_bg_from_local(image_file):
 
 # Call the function with your exact file name
 # When deployed to streamlit.io via GitHub, it will look for this file in your repo root
-add_bg_from_local("background.jpg") 
+add_bg_from_local("background.png") 
 # ------------------------------
 
 # 1. Load Data
